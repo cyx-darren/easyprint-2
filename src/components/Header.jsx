@@ -19,9 +19,12 @@ const Header = () => {
             <Link to="/trending-gifts-2025" className="text-gray-600 hover:text-gray-900">Trending Gifts 2025</Link>
             <Link to="/login" className="text-gray-600 hover:text-gray-900">Login</Link>
           </div>
-          <button className="px-6 py-2.5 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-medium hover:shadow-lg transition-shadow">
+          <Link 
+            to="/signup" 
+            className="px-6 py-2.5 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-medium hover:shadow-lg transition-shadow"
+          >
             Sign Up
-          </button>
+          </Link>
         </nav>
       </div>
     </header>
