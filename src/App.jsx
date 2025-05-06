@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Header from './components/Header';
 import HomePage from './components/HomePage';
 import CorporateGiftsPage from './components/CorporateGiftsPage';
+import BusinessStationeryPage from './components/BusinessStationeryPage';
+import LargeFormatPrintPage from './components/LargeFormatPrintPage';
 import Footer from './components/Footer';
 
 function App() {
@@ -14,6 +16,8 @@ function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/corporate-gifts" element={<CorporateGiftsPage />} />
+            <Route path="/business-stationery" element={<BusinessStationeryPage />} />
+            <Route path="/large-format-print" element={<LargeFormatPrintPage />} />
           </Routes>
         </main>
         <Footer />
