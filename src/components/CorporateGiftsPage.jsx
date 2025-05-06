@@ -69,28 +69,28 @@ const CorporateGiftsPage = () => {
   // Sample product data with placeholder images
   const latestProducts = [
     {
-      image: "https://placehold.co/400x400/e9d5ff/300047?text=New+Product",
-      name: "Premium Wireless Earbuds",
+      image: "https://www.easyprintsg.com/media/amasty/webp/catalog/product/cache/30309880b384d6d7e64c6ec1a7c33af9/h/o/holder_final_1_png.webp",
+      name: "Foldable Mobile Holder",
       description: "High-quality sound, perfect for corporate executives"
     },
     {
-      image: "https://placehold.co/400x400/e9d5ff/300047?text=New+Product",
-      name: "Eco-Friendly Water Bottle",
+      image: "https://www.easyprintsg.com/media/amasty/webp/catalog/product/cache/30309880b384d6d7e64c6ec1a7c33af9/1/7/1737631034c718404d64a834f18314a3b8c3be6e9e_png.webp",
+      name: "Retro Multifunction Bluetooth Speaker",
       description: "Sustainable stainless steel bottle with custom branding"
     },
     {
-      image: "https://placehold.co/400x400/e9d5ff/300047?text=New+Product",
-      name: "Smart Notebook Set",
+      image: "https://www.easyprintsg.com/media/amasty/webp/catalog/product/cache/30309880b384d6d7e64c6ec1a7c33af9/c/a/card_holder_final_1_png.webp",
+      name: "Leather Mobile Card Holder",
       description: "Digital-compatible notebook with recycled paper"
     },
     {
-      image: "https://placehold.co/400x400/e9d5ff/300047?text=New+Product",
-      name: "Wireless Charging Pad",
+      image: "https://www.easyprintsg.com/media/amasty/webp/catalog/product/cache/30309880b384d6d7e64c6ec1a7c33af9/w/e/weigh_final_1_png.webp",
+      name: "Portable Weighing Scale",
       description: "Fast-charging pad with company logo option"
     },
     {
-      image: "https://placehold.co/400x400/e9d5ff/300047?text=New+Product",
-      name: "Premium Desk Mat",
+      image: "https://www.easyprintsg.com/media/amasty/webp/catalog/product/cache/30309880b384d6d7e64c6ec1a7c33af9/i/m/image-2000x2000.jpg_3__png.webp",
+      name: "Table Cloth",
       description: "Large desk mat with wireless charging built-in"
     }
   ];
