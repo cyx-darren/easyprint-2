@@ -1,7 +1,7 @@
 const Footer = () => {
   return (
     <footer className="bg-gray-50 border-t border-gray-100">
-      <div className="max-w-[1920px] mx-auto px-8 py-16">
+      <div className="max-w-[1920px] mx-auto px-16 sm:px-8 md:px-12 lg:px-16 xl:px-24 py-16">
         <div className="grid grid-cols-3 gap-16">
           {/* Quick Links */}
           <div>
