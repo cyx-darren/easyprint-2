@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import CorporateGiftsSidebar from './CorporateGiftsSidebar';
 
 const ProductCard = ({ image, name, description }) => {
   return (
@@ -180,43 +181,53 @@ const CorporateGiftsPage = () => {
   ];
 
   return (
-    <div className="py-12">
+    <div className="pt-8">
       <Breadcrumb />
-      <div className="mb-12">
-        <h1 className="text-4xl font-bold mb-4 text-center">Corporate Gifts Collection</h1>
-        <p className="text-gray-600 max-w-2xl mx-auto text-center">
-          Discover our extensive range of high-quality corporate gifts perfect for any occasion. 
-          From tech accessories to lifestyle products, we have everything you need to make a lasting impression.
-        </p>
+      
+      {/* Main Content Wrapper */}
+      <div className="flex gap-8">
+        {/* Sidebar */}
+        <CorporateGiftsSidebar />
+        
+        {/* Main Content */}
+        <div className="flex-1 min-w-0">
+          <div className="mb-12">
+            <h1 className="text-4xl font-bold mb-4">Corporate Gifts Collection</h1>
+            <p className="text-gray-600 max-w-2xl">
+              Discover our extensive range of high-quality corporate gifts perfect for any occasion. 
+              From tech accessories to lifestyle products, we have everything you need to make a lasting impression.
+            </p>
+          </div>
+
+          <ProductSection 
+            title="Latest Products" 
+            description="Check out our newest additions to the corporate gift collection"
+            products={latestProducts}
+            viewAllLink="/corporate-gifts/latest"
+          />
+
+          <ProductSection 
+            title="Best Sellers" 
+            description="Our most popular corporate gifts loved by businesses"
+            products={bestSellers}
+            viewAllLink="/corporate-gifts/best-sellers"
+          />
+
+          <ProductSection 
+            title="Lifestyle and Sports Bags" 
+            description="Premium bags for work, sports, and everyday use"
+            products={lifestyleBags}
+            viewAllLink="/corporate-gifts/lifestyle-bags"
+          />
+
+          <ProductSection 
+            title="Travel & Lifestyle" 
+            description="Essential accessories for the modern business traveler"
+            products={travelLifestyle}
+            viewAllLink="/corporate-gifts/travel-lifestyle"
+          />
+        </div>
       </div>
-
-      <ProductSection 
-        title="Latest Products" 
-        description="Check out our newest additions to the corporate gift collection"
-        products={latestProducts}
-        viewAllLink="/corporate-gifts/latest"
-      />
-
-      <ProductSection 
-        title="Best Sellers" 
-        description="Our most popular corporate gifts loved by businesses"
-        products={bestSellers}
-        viewAllLink="/corporate-gifts/best-sellers"
-      />
-
-      <ProductSection 
-        title="Lifestyle and Sports Bags" 
-        description="Premium bags for work, sports, and everyday use"
-        products={lifestyleBags}
-        viewAllLink="/corporate-gifts/lifestyle-bags"
-      />
-
-      <ProductSection 
-        title="Travel & Lifestyle" 
-        description="Essential accessories for the modern business traveler"
-        products={travelLifestyle}
-        viewAllLink="/corporate-gifts/travel-lifestyle"
-      />
     </div>
   );
 };
