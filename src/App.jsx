@@ -7,6 +7,7 @@ import BusinessStationeryPage from './components/BusinessStationeryPage';
 import LargeFormatPrintPage from './components/LargeFormatPrintPage';
 import SignUpPage from './components/SignUpPage';
 import LoginPage from './components/LoginPage';
+import DashboardPage from './components/DashboardPage';
 import Footer from './components/Footer';
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
             <Route path="/large-format-print" element={<LargeFormatPrintPage />} />
             <Route path="/signup" element={<SignUpPage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
           </Routes>
         </main>
         <Footer />
