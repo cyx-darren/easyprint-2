@@ -8,6 +8,7 @@ import LargeFormatPrintPage from './components/LargeFormatPrintPage';
 import SignUpPage from './components/SignUpPage';
 import LoginPage from './components/LoginPage';
 import DashboardPage from './components/DashboardPage';
+import ProductTemplate from './components/ProductTemplate';
 import Footer from './components/Footer';
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
             <Route path="/signup" element={<SignUpPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/product-template" element={<ProductTemplate />} />
           </Routes>
         </main>
         <Footer />
