@@ -40,7 +40,7 @@ const ProductList = () => {
         .from('products')
         .select(`
           *,
-          product_categories!inner (
+          product_categories (
             categories (
               id,
               name
@@ -51,7 +51,7 @@ const ProductList = () => {
             url,
             display_order
           ),
-          product_pricing!inner (
+          product_pricing (
             price,
             is_active
           )
@@ -83,9 +83,9 @@ const ProductList = () => {
       // Transform the data to flatten the structure
       const transformedProducts = data.map(product => ({
         ...product,
-        categories: product.product_categories.map(pc => pc.categories.name).join(', '),
-        thumbnail: product.product_images.find(img => img.display_order === 1)?.url || '/placeholder.png',
-        basePrice: product.product_pricing.find(p => p.is_active)?.price || 0,
+        categories: product.product_categories?.map(pc => pc.categories?.name).filter(Boolean).join(', ') || '',
+        thumbnail: product.product_images?.find(img => img?.display_order === 1)?.url || '/placeholder.png',
+        basePrice: product.product_pricing?.find(p => p?.is_active)?.price || 0,
       }));
 
       setProducts(transformedProducts);
