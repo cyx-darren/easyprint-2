@@ -34,7 +34,7 @@ const PricingMatrixEditor = ({ productId, value = [], onChange, className = '' }
       const [tiersResult, optionsResult, timesResult] = await Promise.all([
         supabase.from('price_tiers').select('*').order('min_quantity'),
         supabase.from('print_options').select('*').order('name'),
-        supabase.from('lead_times').select('*').order('days')
+        supabase.from('lead_times').select('*').order('min_days')
       ]);
 
       if (tiersResult.error) throw tiersResult.error;
@@ -202,6 +202,9 @@ const PricingMatrixEditor = ({ productId, value = [], onChange, className = '' }
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Quantity Range
               </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Lead Time
+              </th>
               {printOptions.map(option => (
                 <th
                   key={option.id}
@@ -213,16 +216,20 @@ const PricingMatrixEditor = ({ productId, value = [], onChange, className = '' }
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {priceTiers.map(tier => (
-              leadTimes.map(time => (
+            {priceTiers.map((tier, tierIndex) => (
+              leadTimes.map((time, timeIndex) => (
                 <tr key={`${tier.id}-${time.id}`}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <div className="font-medium">
-                      {tier.min_quantity} - {tier.max_quantity || '∞'}
-                    </div>
-                    <div className="text-gray-500 text-xs">
-                      {time.days} day{time.days !== 1 ? 's' : ''}
-                    </div>
+                    {timeIndex === 0 && (
+                      <div className="font-medium">
+                        {tier.min_quantity} - {tier.max_quantity || '∞'}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {time.min_days === time.max_days 
+                      ? `${time.min_days} days`
+                      : `${time.min_days}-${time.max_days} days`}
                   </td>
                   {printOptions.map(option => {
                     const key = getMatrixKey(tier.id, option.id, time.id);
