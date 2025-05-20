@@ -242,15 +242,41 @@ const ProductForm = () => {
       setLoading(true);
       setError(null);
 
+      // Validate required fields
+      if (!formData.name || !formData.product_code || !formData.slug) {
+        setError('Name, SKU, and URL Slug are required fields');
+        return;
+      }
+
+      // Validate base price
+      if (!formData.base_price || isNaN(parseFloat(formData.base_price))) {
+        setError('Base price is required and must be a valid number');
+        return;
+      }
+
+      console.log('Form validation passed. Submitting form data:', {
+        name: formData.name,
+        product_code: formData.product_code,
+        slug: formData.slug,
+        base_price: formData.base_price,
+        pricing_matrix: formData.pricing_matrix
+      });
+
       // Check if slug is unique
-      const { data: existingProduct, error: slugCheckError } = await supabase
+      const slugCheckQuery = supabase
         .from('products')
         .select('id')
-        .eq('slug', formData.slug)
-        .neq('id', id || '') // Exclude current product when updating
-        .single();
+        .eq('slug', formData.slug);
+
+      // Only add the neq condition if we have an id (editing mode)
+      if (id) {
+        slugCheckQuery.neq('id', id);
+      }
+
+      const { data: existingProduct, error: slugCheckError } = await slugCheckQuery.single();
 
       if (slugCheckError && slugCheckError.code !== 'PGRST116') { // PGRST116 means no rows returned
+        console.error('Slug check error:', slugCheckError);
         throw slugCheckError;
       }
 
@@ -274,27 +300,48 @@ const ProductForm = () => {
       }
 
       console.log('Saving product data:', productData);
-      const { data: product, error: productError } = id
-        ? await supabase
-            .from('products')
-            .update(productData)
-            .eq('id', id)
-            .select()
-            .single()
-        : await supabase
-            .from('products')
-            .insert(productData)
-            .select()
-            .single();
+      let product;
+      let productError;
 
-      if (productError) throw productError;
+      if (id) {
+        // Update existing product
+        const result = await supabase
+          .from('products')
+          .update(productData)
+          .eq('id', id)
+          .select()
+          .single();
+        product = result.data;
+        productError = result.error;
+      } else {
+        // Create new product
+        const result = await supabase
+          .from('products')
+          .insert(productData)
+          .select()
+          .single();
+        product = result.data;
+        productError = result.error;
+      }
+
+      if (productError) {
+        console.error('Error saving product:', productError);
+        throw productError;
+      }
+
+      console.log('Product saved successfully:', product);
 
       // 2. Handle categories
       if (id) {
-        await supabase
+        const { error: deleteError } = await supabase
           .from('product_categories')
           .delete()
           .eq('product_id', id);
+        
+        if (deleteError) {
+          console.error('Error deleting existing categories:', deleteError);
+          throw deleteError;
+        }
       }
 
       if (formData.category_ids.length > 0) {
@@ -303,11 +350,15 @@ const ProductForm = () => {
           category_id: categoryId
         }));
 
+        console.log('Saving category data:', categoryData);
         const { error: categoriesError } = await supabase
           .from('product_categories')
           .insert(categoryData);
 
-        if (categoriesError) throw categoriesError;
+        if (categoriesError) {
+          console.error('Error saving categories:', categoriesError);
+          throw categoriesError;
+        }
       }
 
       // 3. Handle pricing
@@ -347,29 +398,60 @@ const ProductForm = () => {
       }
 
       // Prepare pricing data
-      let pricingData = [];
+      let pricingData = new Map(); // Use Map to ensure unique combinations
+
+      // Helper function to generate unique key for pricing entries
+      const getPricingKey = (tier_id, option_id, time_id) => 
+        `${tier_id}-${option_id}-${time_id}`;
 
       // Add base price
-      pricingData.push({
+      const basePrice = {
         product_id: product.id,
-        price: formData.base_price ? parseFloat(formData.base_price) : 0,
+        price: parseFloat(formData.base_price),
         price_tier_id: tierResult.data.id,
         print_option_id: optionResult.data.id,
         lead_time_id: leadTimeResult.data.id,
         is_active: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
-      });
+      };
+
+      const basePriceKey = getPricingKey(
+        basePrice.price_tier_id,
+        basePrice.print_option_id,
+        basePrice.lead_time_id
+      );
+
+      console.log('Adding base price:', basePrice);
+      pricingData.set(basePriceKey, basePrice);
 
       // Add matrix pricing
       if (formData.pricing_matrix && formData.pricing_matrix.length > 0) {
         console.log('Processing matrix pricing data:', formData.pricing_matrix);
-        formData.pricing_matrix.forEach(pricing => {
-          console.log('Processing pricing entry:', pricing);
+        formData.pricing_matrix.forEach((pricing, index) => {
+          console.log(`Processing pricing entry ${index}:`, pricing);
           if (pricing.price_tier_id && pricing.print_option_id && pricing.lead_time_id) {
+            const price = parseFloat(pricing.price);
+            if (isNaN(price)) {
+              console.warn(`Invalid price value for entry ${index}:`, pricing.price);
+              return;
+            }
+
+            const pricingKey = getPricingKey(
+              pricing.price_tier_id,
+              pricing.print_option_id,
+              pricing.lead_time_id
+            );
+
+            // Skip if we already have this combination
+            if (pricingData.has(pricingKey)) {
+              console.warn(`Skipping duplicate pricing entry ${index} with key ${pricingKey}`);
+              return;
+            }
+
             const pricingEntry = {
               product_id: product.id,
-              price: pricing.price ? parseFloat(pricing.price) : 0,
+              price: price,
               price_tier_id: pricing.price_tier_id,
               print_option_id: pricing.print_option_id,
               lead_time_id: pricing.lead_time_id,
@@ -377,10 +459,10 @@ const ProductForm = () => {
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
             };
-            console.log('Adding pricing entry:', pricingEntry);
-            pricingData.push(pricingEntry);
+            console.log(`Adding pricing entry ${index}:`, pricingEntry);
+            pricingData.set(pricingKey, pricingEntry);
           } else {
-            console.warn('Skipping invalid pricing entry:', pricing);
+            console.warn(`Skipping invalid pricing entry ${index}:`, pricing);
           }
         });
       }
@@ -399,26 +481,31 @@ const ProductForm = () => {
         }
       }
 
+      // Convert Map values to array for insertion
+      const uniquePricingData = Array.from(pricingData.values());
+
       // Insert new pricing data
-      console.log('Final pricing data to be inserted:', pricingData);
+      console.log('Final pricing data to be inserted:', uniquePricingData);
       const { error: pricingError } = await supabase
         .from('product_pricing')
-        .upsert(pricingData, {
-          onConflict: 'product_id,price_tier_id,print_option_id,lead_time_id',
-          ignoreDuplicates: true
-        });
+        .insert(uniquePricingData);
 
       if (pricingError) {
-        console.error('Error upserting pricing:', pricingError);
+        console.error('Error inserting pricing:', pricingError);
         throw pricingError;
       }
 
       // 4. Handle related products
       if (id) {
-        await supabase
+        const { error: deleteRelatedError } = await supabase
           .from('related_products')
           .delete()
           .eq('product_id', id);
+        
+        if (deleteRelatedError) {
+          console.error('Error deleting existing related products:', deleteRelatedError);
+          throw deleteRelatedError;
+        }
       }
 
       if (formData.related_product_ids.length > 0) {
@@ -427,17 +514,21 @@ const ProductForm = () => {
           related_product_id: relatedId
         }));
 
+        console.log('Saving related products:', relatedData);
         const { error: relatedError } = await supabase
           .from('related_products')
           .insert(relatedData);
 
-        if (relatedError) throw relatedError;
+        if (relatedError) {
+          console.error('Error saving related products:', relatedError);
+          throw relatedError;
+        }
       }
 
       navigate('/admin/products');
     } catch (err) {
       console.error('Error saving product:', err);
-      setError('Failed to save product');
+      setError(`Failed to save product: ${err.message}`);
     } finally {
       setLoading(false);
     }
