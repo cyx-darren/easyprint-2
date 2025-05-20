@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
 
-const Breadcrumb = () => (
+const Breadcrumb = ({ product, category }) => (
   <nav className="mb-8">
     <ol className="flex items-center space-x-2 text-gray-600">
       <li>
@@ -11,12 +12,14 @@ const Breadcrumb = () => (
         <span className="mx-2">›</span>
       </li>
       <li>
-        <Link to="/corporate-gifts" className="hover:text-purple-600">Corporate Gifts</Link>
+        <Link to={`/${category?.slug || 'products'}`} className="hover:text-purple-600">
+          {category?.name || 'Products'}
+        </Link>
       </li>
       <li>
         <span className="mx-2">›</span>
       </li>
-      <li className="font-medium text-gray-900">Premium Bluetooth Speaker</li>
+      <li className="font-medium text-gray-900">{product?.name || 'Loading...'}</li>
     </ol>
   </nav>
 );
@@ -49,35 +52,126 @@ const TabButton = ({ active, onClick, children }) => (
 );
 
 const ProductTemplate = () => {
+  const { slug } = useParams();
+  const [product, setProduct] = useState(null);
+  const [category, setCategory] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [quantity, setQuantity] = useState(100);
   const [selectedLeadTime, setSelectedLeadTime] = useState('standard');
   const [selectedPrintOption, setSelectedPrintOption] = useState('1color');
   const [activeTab, setActiveTab] = useState('description');
+  const [relatedProducts, setRelatedProducts] = useState([]);
 
-  const relatedProducts = [
-    {
-      id: 1,
-      name: 'Wireless Charger',
-      image: 'https://placehold.co/300x300/e2e8f0/64748b?text=Related+Product',
-      price: '$24.99'
-    },
-    {
-      id: 2,
-      name: 'Power Bank',
-      image: 'https://placehold.co/300x300/e2e8f0/64748b?text=Related+Product',
-      price: '$39.99'
-    },
-    {
-      id: 3,
-      name: 'USB Hub',
-      image: 'https://placehold.co/300x300/e2e8f0/64748b?text=Related+Product',
-      price: '$19.99'
+  useEffect(() => {
+    fetchProduct();
+  }, [slug]);
+
+  const fetchProduct = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Fetch product data with all related information
+      const { data: product, error: productError } = await supabase
+        .from('products')
+        .select(`
+          *,
+          product_categories!inner (
+            category_id,
+            categories (
+              id,
+              name,
+              slug
+            )
+          ),
+          product_images (
+            id,
+            url,
+            display_order
+          ),
+          product_pricing (
+            id,
+            price,
+            price_tier_id,
+            print_option_id,
+            lead_time_id,
+            is_active
+          )
+        `)
+        .eq('slug', slug)
+        .single();
+
+      if (productError) throw productError;
+
+      if (!product) {
+        setError('Product not found');
+        return;
+      }
+
+      // Get the primary category (first one)
+      if (product.product_categories?.[0]?.categories) {
+        setCategory(product.product_categories[0].categories);
+      }
+
+      // Get related products if any
+      if (product.id) {
+        const { data: relatedData, error: relatedError } = await supabase
+          .from('related_products')
+          .select(`
+            related_product_id,
+            related_products:products!related_products_related_product_id_fkey (
+              id,
+              name,
+              product_code,
+              product_images (
+                url,
+                display_order
+              ),
+              product_pricing (
+                price,
+                is_active
+              )
+            )
+          `)
+          .eq('product_id', product.id);
+
+        if (relatedError) throw relatedError;
+
+        const formattedRelatedProducts = relatedData?.map(item => ({
+          id: item.related_products.id,
+          name: item.related_products.name,
+          image: item.related_products.product_images?.find(img => img.display_order === 1)?.url || '/placeholder.png',
+          price: item.related_products.product_pricing?.find(p => p.is_active)?.price || 0
+        })) || [];
+
+        setRelatedProducts(formattedRelatedProducts);
+      }
+
+      setProduct(product);
+
+    } catch (err) {
+      console.error('Error fetching product:', err);
+      setError('Failed to load product');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  if (loading) return <div className="p-8 text-center">Loading...</div>;
+  if (error) return <div className="p-8 text-center text-red-600">{error}</div>;
+  if (!product) return <div className="p-8 text-center">Product not found</div>;
+
+  // Get the main product image
+  const mainImage = product.product_images?.find(img => img.display_order === 1)?.url || 
+    "https://placehold.co/800x800/e2e8f0/64748b?text=Product+Image";
+
+  // Get the base price
+  const basePrice = product.product_pricing?.find(p => p.is_active)?.price || 0;
 
   return (
     <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-      <Breadcrumb />
+      <Breadcrumb product={product} category={category} />
       
       {/* Product Overview Section */}
       <div className="flex flex-col lg:flex-row gap-8 mb-16">
@@ -85,8 +179,8 @@ const ProductTemplate = () => {
         <div className="lg:w-1/2">
           <div className="aspect-square rounded-2xl bg-gray-100 overflow-hidden">
             <img
-              src="https://placehold.co/800x800/e2e8f0/64748b?text=Product+Image"
-              alt="Product"
+              src={mainImage}
+              alt={product.name}
               className="w-full h-full object-cover"
             />
           </div>
@@ -94,11 +188,13 @@ const ProductTemplate = () => {
 
         {/* Product Details */}
         <div className="lg:w-1/2">
-          <h1 className="text-3xl font-bold mb-4">Premium Bluetooth Speaker</h1>
+          <h1 className="text-3xl font-bold mb-4">{product.name}</h1>
           <p className="text-gray-600 mb-6">
-            High-quality portable speaker with custom branding options. Perfect for corporate gifts and events.
+            {product.description}
           </p>
-          <div className="text-2xl font-bold text-purple-600 mb-8">$49.99</div>
+          <div className="text-2xl font-bold text-purple-600 mb-8">
+            ${basePrice.toFixed(2)}
+          </div>
 
           {/* Quantity Selector */}
           <div className="mb-8">
@@ -233,29 +329,31 @@ const ProductTemplate = () => {
       </div>
 
       {/* Frequently Bought With */}
-      <div>
-        <h2 className="text-2xl font-bold mb-6">Frequently Bought With</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {relatedProducts.map((product) => (
-            <div key={product.id} className="bg-white rounded-2xl p-4 shadow-lg">
-              <div className="aspect-square rounded-xl bg-gray-100 mb-4 overflow-hidden">
-                <img 
-                  src={product.image}
-                  alt={product.name}
-                  className="w-full h-full object-cover"
-                />
+      {relatedProducts.length > 0 && (
+        <div>
+          <h2 className="text-2xl font-bold mb-6">Frequently Bought With</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {relatedProducts.map((product) => (
+              <div key={product.id} className="bg-white rounded-2xl p-4 shadow-lg">
+                <div className="aspect-square rounded-xl bg-gray-100 mb-4 overflow-hidden">
+                  <img 
+                    src={product.image}
+                    alt={product.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <h3 className="font-medium mb-2">{product.name}</h3>
+                <div className="flex items-center justify-between">
+                  <span className="text-purple-600 font-medium">${product.price.toFixed(2)}</span>
+                  <button className="text-sm text-purple-600 hover:text-purple-800">
+                    Add to Project
+                  </button>
+                </div>
               </div>
-              <h3 className="font-medium mb-2">{product.name}</h3>
-              <div className="flex items-center justify-between">
-                <span className="text-purple-600 font-medium">{product.price}</span>
-                <button className="text-sm text-purple-600 hover:text-purple-800">
-                  Add to Project
-                </button>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

@@ -57,7 +57,7 @@ function App() {
               </ProtectedRoute>
             } 
           />
-          <Route path="/product-template" element={<ProductTemplate />} />
+          <Route path="/product/:slug" element={<ProductTemplate />} />
 
           {/* Admin Routes */}
           <Route path="/admin/login" element={<AdminLoginPage />} />

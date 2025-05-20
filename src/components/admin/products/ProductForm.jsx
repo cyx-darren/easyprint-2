@@ -19,6 +19,7 @@ const ProductForm = () => {
     product_code: '',
     description: '',
     is_enabled: true,
+    slug: '',
     
     // Categories
     category_ids: [],
@@ -35,12 +36,8 @@ const ProductForm = () => {
     pricing_matrix: [],
     
     // Options/Variants
-    options: [
-      // { name: 'Size', values: ['Small', 'Medium', 'Large'] }
-    ],
-    variants: [
-      // { option_values: ['Small'], price_adjustment: 0, sku_suffix: '-S' }
-    ],
+    options: [],
+    variants: [],
     
     // Related Products
     related_product_ids: []
@@ -57,10 +54,45 @@ const ProductForm = () => {
     { name: 'Related', id: 'related' }
   ];
 
+  // Generate slug from name
+  const generateSlug = (name) => {
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-') // Replace special characters with hyphens
+      .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
+      .replace(/-+/g, '-'); // Replace multiple hyphens with single hyphen
+  };
+
+  // Handle name change and auto-generate slug
+  const handleNameChange = (e) => {
+    const newName = e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      name: newName,
+      // Only auto-generate slug if it hasn't been manually edited
+      slug: prev.slug === generateSlug(prev.name) ? generateSlug(newName) : prev.slug
+    }));
+  };
+
+  // Handle manual slug change
+  const handleSlugChange = (e) => {
+    const newSlug = generateSlug(e.target.value);
+    setFormData(prev => ({
+      ...prev,
+      slug: newSlug
+    }));
+  };
+
   useEffect(() => {
     fetchCategories();
     if (id) {
       fetchProduct();
+    } else {
+      // Initialize slug for new products
+      setFormData(prev => ({
+        ...prev,
+        slug: generateSlug(prev.name)
+      }));
     }
   }, [id]);
 
@@ -172,6 +204,7 @@ const ProductForm = () => {
         product_code: basicData.product_code,
         description: basicData.description,
         is_enabled: basicData.is_enabled,
+        slug: basicData.slug || generateSlug(basicData.name),
         category_ids: categoriesResult.data.map(pc => pc.category_id),
         base_price: pricingResult.data.find(p => p.is_active && !p.price_tier_id)?.price || '',
         pricing_matrix: pricingResult.data
@@ -209,12 +242,30 @@ const ProductForm = () => {
       setLoading(true);
       setError(null);
 
+      // Check if slug is unique
+      const { data: existingProduct, error: slugCheckError } = await supabase
+        .from('products')
+        .select('id')
+        .eq('slug', formData.slug)
+        .neq('id', id || '') // Exclude current product when updating
+        .single();
+
+      if (slugCheckError && slugCheckError.code !== 'PGRST116') { // PGRST116 means no rows returned
+        throw slugCheckError;
+      }
+
+      if (existingProduct) {
+        setError('A product with this slug already exists. Please choose a different one.');
+        return;
+      }
+
       // 1. Insert/update product
       const productData = {
         name: formData.name,
         product_code: formData.product_code,
         description: formData.description,
         is_enabled: formData.is_enabled,
+        slug: formData.slug,
         updated_at: new Date()
       };
 
@@ -444,10 +495,31 @@ const ProductForm = () => {
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={handleNameChange}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500"
                   required
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">URL Slug</label>
+                <div className="mt-1 flex rounded-md shadow-sm">
+                  <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                    /product/
+                  </span>
+                  <input
+                    type="text"
+                    value={formData.slug}
+                    onChange={handleSlugChange}
+                    className="flex-1 block w-full rounded-none rounded-r-md border-gray-300 focus:border-purple-500 focus:ring-purple-500 sm:text-sm"
+                    required
+                    pattern="[a-z0-9-]+"
+                    title="Only lowercase letters, numbers, and hyphens are allowed"
+                  />
+                </div>
+                <p className="mt-1 text-sm text-gray-500">
+                  This will be used in the product's URL. Only use lowercase letters, numbers, and hyphens.
+                </p>
               </div>
 
               <div>
