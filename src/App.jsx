@@ -15,6 +15,11 @@ import AdminProtectedRoute from './components/admin/AdminProtectedRoute';
 import AdminLayout from './components/admin/AdminLayout';
 import AdminLoginPage from './components/admin/AdminLoginPage';
 import Dashboard from './components/admin/Dashboard';
+import ProductList from './components/admin/products/ProductList';
+import ProductForm from './components/admin/products/ProductForm';
+import CategoryList from './components/admin/categories/CategoryList';
+import PricingManager from './components/admin/pricing/PricingManager';
+import MediaManager from './components/admin/media/MediaManager';
 
 // Wrapper component to conditionally render header/footer
 const AppLayout = ({ children }) => {
@@ -65,10 +70,12 @@ function App() {
             }
           >
             <Route index element={<Dashboard />} />
-            <Route path="products" element={<div>Products Management</div>} />
-            <Route path="categories" element={<div>Categories Management</div>} />
-            <Route path="pricing" element={<div>Pricing Management</div>} />
-            <Route path="media" element={<div>Media Management</div>} />
+            <Route path="products" element={<ProductList />} />
+            <Route path="products/new" element={<ProductForm />} />
+            <Route path="products/:id" element={<ProductForm />} />
+            <Route path="categories" element={<CategoryList />} />
+            <Route path="pricing" element={<PricingManager />} />
+            <Route path="media" element={<MediaManager />} />
           </Route>
         </Routes>
       </AppLayout>
