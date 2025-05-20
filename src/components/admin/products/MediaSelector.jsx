@@ -15,10 +15,7 @@ const ACCEPTED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 // Sortable image item component
-const SortableImage = ({ id, url, alt, display_order, onDelete, onAltChange }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [altText, setAltText] = useState(alt);
-  
+const SortableImage = ({ id, url, display_order, onDelete }) => {
   const {
     attributes,
     listeners,
@@ -34,21 +31,16 @@ const SortableImage = ({ id, url, alt, display_order, onDelete, onAltChange }) =
     zIndex: isDragging ? 1 : 0,
   };
 
-  const handleAltSave = () => {
-    onAltChange(id, altText);
-    setIsEditing(false);
-  };
-
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={`relative group bg-white rounded-lg shadow ${isDragging ? 'shadow-lg' : ''}`}
     >
-      <div className="aspect-square overflow-hidden rounded-t-lg">
+      <div className="aspect-square overflow-hidden rounded-lg">
         <img
           src={url}
-          alt={alt}
+          alt=""
           className="w-full h-full object-cover"
         />
       </div>
@@ -70,39 +62,6 @@ const SortableImage = ({ id, url, alt, display_order, onDelete, onAltChange }) =
         className="absolute top-2 left-2 p-1 bg-gray-800 bg-opacity-50 text-white rounded-full cursor-move opacity-0 group-hover:opacity-100 transition-opacity"
       >
         <ArrowsUpDownIcon className="h-4 w-4" />
-      </div>
-
-      {/* Alt text section */}
-      <div className="p-2 border-t">
-        {isEditing ? (
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={altText}
-              onChange={(e) => setAltText(e.target.value)}
-              className="flex-1 text-sm px-2 py-1 border rounded"
-              placeholder="Enter alt text"
-            />
-            <button
-              onClick={handleAltSave}
-              className="p-1 bg-purple-500 text-white rounded hover:bg-purple-600"
-            >
-              <CheckIcon className="h-4 w-4" />
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600 truncate">
-              {alt || 'No alt text'}
-            </span>
-            <button
-              onClick={() => setIsEditing(true)}
-              className="p-1 text-gray-500 hover:text-purple-600"
-            >
-              <PencilSquareIcon className="h-4 w-4" />
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -202,8 +161,7 @@ const MediaSelector = ({ productId, value = [], onChange, className = '' }) => {
         .insert({
           product_id: productId,
           url: publicUrl,
-          display_order: items.length,
-          alt: file.name,
+          display_order: items.length
         })
         .select()
         .single();
@@ -264,27 +222,6 @@ const MediaSelector = ({ productId, value = [], onChange, className = '' }) => {
     } catch (err) {
       console.error('Error deleting image:', err);
       setError('Failed to delete image');
-    }
-  };
-
-  const handleAltChange = async (imageId, newAlt) => {
-    try {
-      const { error } = await supabase
-        .from('product_images')
-        .update({ alt: newAlt })
-        .eq('id', imageId);
-
-      if (error) throw error;
-
-      // Update state
-      const newItems = items.map(item =>
-        item.id === imageId ? { ...item, alt: newAlt } : item
-      );
-      setItems(newItems);
-      onChange(newItems);
-    } catch (err) {
-      console.error('Error updating alt text:', err);
-      setError('Failed to update alt text');
     }
   };
 
@@ -407,10 +344,8 @@ const MediaSelector = ({ productId, value = [], onChange, className = '' }) => {
                     key={item.id}
                     id={item.id}
                     url={item.url}
-                    alt={item.alt}
                     display_order={item.display_order}
                     onDelete={handleDelete}
-                    onAltChange={handleAltChange}
                   />
                 ))}
               </div>

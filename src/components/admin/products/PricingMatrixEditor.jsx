@@ -100,15 +100,42 @@ const PricingMatrixEditor = ({ productId, value = [], onChange, className = '' }
 
   // Handle price change
   const handlePriceChange = (key, value) => {
-    const price = parseFloat(value) || 0;
+    console.log('Price change triggered:', { key, value, type: typeof value });
+    
+    // Parse the price, ensuring we handle empty strings and invalid numbers
+    let price;
+    if (value === '') {
+      price = 0;
+    } else {
+      price = parseFloat(value);
+      if (isNaN(price)) {
+        console.warn('Invalid price value:', value);
+        price = 0;
+      }
+    }
+    
+    console.log('Parsed price:', price, typeof price);
+    
+    // Get the current cell data
+    const currentCell = matrix[key] || { enabled: false, price: 0 };
+    console.log('Current cell data:', currentCell);
+    
     const newMatrix = {
       ...matrix,
       [key]: {
-        ...matrix[key],
-        price
+        ...currentCell,
+        price,
+        enabled: true,
+        tier_id: currentCell.tier_id,
+        option_id: currentCell.option_id,
+        time_id: currentCell.time_id
       }
     };
+    
+    console.log('New matrix cell:', newMatrix[key]);
+    console.log('Matrix state before update:', matrix);
     setMatrix(newMatrix);
+    console.log('Matrix state after update:', newMatrix);
     emitChange(newMatrix);
   };
 
@@ -134,16 +161,26 @@ const PricingMatrixEditor = ({ productId, value = [], onChange, className = '' }
 
   // Emit change to parent
   const emitChange = (newMatrix) => {
+    console.log('Matrix before emission:', newMatrix);
     const pricingData = Object.entries(newMatrix)
-      .filter(([_, cell]) => cell.enabled)
-      .map(([_, cell]) => ({
-        price_tier_id: cell.tier_id,
-        print_option_id: cell.option_id,
-        lead_time_id: cell.time_id,
-        price: cell.price,
-        is_active: true
-      }));
-
+      .filter(([_, cell]) => {
+        const isEnabled = cell.enabled;
+        console.log('Cell enabled check:', { cell, isEnabled });
+        return isEnabled;
+      })
+      .map(([key, cell]) => {
+        const data = {
+          price_tier_id: cell.tier_id,
+          print_option_id: cell.option_id,
+          lead_time_id: cell.time_id,
+          price: cell.price,
+          is_active: true
+        };
+        console.log('Mapped pricing data for key:', key, data);
+        return data;
+      });
+    
+    console.log('Final pricing data being emitted:', pricingData);
     onChange(pricingData);
   };
 
@@ -264,6 +301,11 @@ const PricingMatrixEditor = ({ productId, value = [], onChange, className = '' }
                               type="number"
                               value={cell.price}
                               onChange={(e) => handlePriceChange(key, e.target.value)}
+                              onBlur={(e) => {
+                                // Ensure we have a valid number on blur
+                                const validPrice = parseFloat(e.target.value) || 0;
+                                handlePriceChange(key, validPrice.toString());
+                              }}
                               className="w-24 px-2 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                               min="0"
                               step="0.01"

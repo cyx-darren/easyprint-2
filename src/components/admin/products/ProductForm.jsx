@@ -82,95 +82,121 @@ const ProductForm = () => {
   const fetchProduct = async () => {
     try {
       setLoading(true);
+      setError(null);
       
-      // Fetch product data
-      const { data, error } = await supabase
+      console.log('Fetching product with ID:', id);
+      
+      // First fetch just the basic product data
+      const { data: basicData, error: basicError } = await supabase
         .from('products')
-        .select(`
-          *,
-          product_categories (
-            category_id
-          ),
-          product_images (
-            id,
-            url,
-            display_order,
-            alt
-          ),
-          product_pricing (
-            id,
-            price,
-            is_active,
-            price_tier_id,
-            print_option_id,
-            lead_time_id
-          ),
-          product_options (
-            name,
-            values
-          ),
-          product_variants (
-            option_values,
-            price_adjustment,
-            sku_suffix
-          ),
-          related_products (
-            related_product_id
-          )
-        `)
+        .select('*')
         .eq('id', id)
         .single();
 
-      if (error) throw error;
+      if (basicError) {
+        console.error('Error fetching basic product data:', basicError);
+        throw basicError;
+      }
 
-      // Fetch related products details
-      const relatedIds = data.related_products.map(r => r.related_product_id);
+      console.log('Basic product data:', basicData);
+
+      // Then fetch related data
+      const [
+        categoriesResult,
+        imagesResult,
+        pricingResult,
+        relatedResult
+      ] = await Promise.all([
+        supabase
+          .from('product_categories')
+          .select('category_id')
+          .eq('product_id', id),
+        supabase
+          .from('product_images')
+          .select('id, url, display_order')
+          .eq('product_id', id),
+        supabase
+          .from('product_pricing')
+          .select('id, price, is_active, price_tier_id, print_option_id, lead_time_id')
+          .eq('product_id', id),
+        supabase
+          .from('related_products')
+          .select('related_product_id')
+          .eq('product_id', id)
+      ]);
+
+      // Check for errors in each query
+      if (categoriesResult.error) {
+        console.error('Error fetching categories:', categoriesResult.error);
+        throw categoriesResult.error;
+      }
+      if (imagesResult.error) {
+        console.error('Error fetching images:', imagesResult.error);
+        throw imagesResult.error;
+      }
+      if (pricingResult.error) {
+        console.error('Error fetching pricing:', pricingResult.error);
+        throw pricingResult.error;
+      }
+      if (relatedResult.error) {
+        console.error('Error fetching related products:', relatedResult.error);
+        throw relatedResult.error;
+      }
+
+      console.log('Categories data:', categoriesResult.data);
+      console.log('Images data:', imagesResult.data);
+      console.log('Pricing data:', pricingResult.data);
+      console.log('Related products data:', relatedResult.data);
+
+      // Fetch related products details if needed
+      let relatedProducts = [];
+      const relatedIds = relatedResult.data.map(r => r.related_product_id);
+      
       if (relatedIds.length > 0) {
         const { data: relatedData, error: relatedError } = await supabase
           .from('products')
-          .select('id, name, product_code, product_images!inner(url)')
+          .select('id, name, product_code, product_images(url)')
           .in('id', relatedIds);
 
-        if (relatedError) throw relatedError;
+        if (relatedError) {
+          console.error('Error fetching related product details:', relatedError);
+          throw relatedError;
+        }
         
-        setRelatedProducts(relatedData.map(product => ({
-          ...product,
-          thumbnail: product.product_images[0]?.url || '/placeholder.png'
-        })));
+        relatedProducts = relatedData;
       }
 
       // Transform the data to match our form structure
       setFormData({
-        name: data.name,
-        product_code: data.product_code,
-        description: data.description,
-        is_enabled: data.is_enabled,
-        category_ids: data.product_categories.map(pc => pc.category_id),
-        base_price: data.product_pricing.find(p => p.is_active && !p.price_tier_id)?.price || '',
-        pricing_matrix: data.product_pricing
+        name: basicData.name,
+        product_code: basicData.product_code,
+        description: basicData.description,
+        is_enabled: basicData.is_enabled,
+        category_ids: categoriesResult.data.map(pc => pc.category_id),
+        base_price: pricingResult.data.find(p => p.is_active && !p.price_tier_id)?.price || '',
+        pricing_matrix: pricingResult.data
           .filter(p => p.is_active && p.price_tier_id)
           .map(p => ({
             price_tier_id: p.price_tier_id,
             print_option_id: p.print_option_id,
             lead_time_id: p.lead_time_id,
             price: p.price
-          })) || [],
-        images: data.product_images,
-        meta_title: data.meta_title,
-        meta_description: data.meta_description,
-        options: data.product_options.map(option => ({
-          name: option.name,
-          values: option.values
-        })),
-        variants: data.product_variants.map(variant => ({
-          option_values: variant.option_values,
-          price_adjustment: variant.price_adjustment,
-          sku_suffix: variant.sku_suffix
-        })),
+          })),
+        images: imagesResult.data,
+        meta_title: basicData.meta_title || '',
+        meta_description: basicData.meta_description || '',
+        options: [], // Empty for now until we set up the tables
+        variants: [], // Empty for now until we set up the tables
         related_product_ids: relatedIds
       });
+
+      setRelatedProducts(relatedProducts.map(product => ({
+        ...product,
+        thumbnail: product.product_images?.[0]?.url || '/placeholder.png'
+      })));
+
     } catch (err) {
-      console.error('Error fetching product:', err);
+      console.error('Error in fetchProduct:', err);
       setError('Failed to load product');
     } finally {
       setLoading(false);
@@ -189,8 +215,6 @@ const ProductForm = () => {
         product_code: formData.product_code,
         description: formData.description,
         is_enabled: formData.is_enabled,
-        meta_title: formData.meta_title,
-        meta_description: formData.meta_description,
         updated_at: new Date()
       };
 
@@ -198,6 +222,7 @@ const ProductForm = () => {
         productData.created_at = new Date();
       }
 
+      console.log('Saving product data:', productData);
       const { data: product, error: productError } = id
         ? await supabase
             .from('products')
@@ -235,82 +260,109 @@ const ProductForm = () => {
       }
 
       // 3. Handle pricing
+      // Get the default price tier, print option, and lead time
+      const [tierResult, optionResult, leadTimeResult] = await Promise.all([
+        supabase
+          .from('price_tiers')
+          .select('id')
+          .order('min_quantity', { ascending: true })
+          .limit(1)
+          .single(),
+        supabase
+          .from('print_options')
+          .select('id')
+          .order('name')
+          .limit(1)
+          .single(),
+        supabase
+          .from('lead_times')
+          .select('id')
+          .order('min_days')
+          .limit(1)
+          .single()
+      ]);
+
+      if (tierResult.error) {
+        console.error('Error fetching default price tier:', tierResult.error);
+        throw tierResult.error;
+      }
+      if (optionResult.error) {
+        console.error('Error fetching default print option:', optionResult.error);
+        throw optionResult.error;
+      }
+      if (leadTimeResult.error) {
+        console.error('Error fetching default lead time:', leadTimeResult.error);
+        throw leadTimeResult.error;
+      }
+
+      // Prepare pricing data
+      let pricingData = [];
+
+      // Add base price
+      pricingData.push({
+        product_id: product.id,
+        price: formData.base_price ? parseFloat(formData.base_price) : 0,
+        price_tier_id: tierResult.data.id,
+        print_option_id: optionResult.data.id,
+        lead_time_id: leadTimeResult.data.id,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+
+      // Add matrix pricing
+      if (formData.pricing_matrix && formData.pricing_matrix.length > 0) {
+        console.log('Processing matrix pricing data:', formData.pricing_matrix);
+        formData.pricing_matrix.forEach(pricing => {
+          console.log('Processing pricing entry:', pricing);
+          if (pricing.price_tier_id && pricing.print_option_id && pricing.lead_time_id) {
+            const pricingEntry = {
+              product_id: product.id,
+              price: pricing.price ? parseFloat(pricing.price) : 0,
+              price_tier_id: pricing.price_tier_id,
+              print_option_id: pricing.print_option_id,
+              lead_time_id: pricing.lead_time_id,
+              is_active: true,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            console.log('Adding pricing entry:', pricingEntry);
+            pricingData.push(pricingEntry);
+          } else {
+            console.warn('Skipping invalid pricing entry:', pricing);
+          }
+        });
+      }
+
+      // First delete existing pricing
       if (id) {
-        await supabase
+        console.log('Deleting existing pricing for product:', id);
+        const { error: deleteError } = await supabase
           .from('product_pricing')
           .delete()
           .eq('product_id', id);
-      }
-
-      // Insert base price
-      const basePricingData = {
-        product_id: product.id,
-        price: parseFloat(formData.base_price),
-        is_active: true
-      };
-
-      const { error: basePricingError } = await supabase
-        .from('product_pricing')
-        .insert(basePricingData);
-
-      if (basePricingError) throw basePricingError;
-
-      // Insert matrix pricing
-      if (formData.pricing_matrix.length > 0) {
-        const matrixPricingData = formData.pricing_matrix.map(pricing => ({
-          product_id: product.id,
-          price: pricing.price,
-          price_tier_id: pricing.price_tier_id,
-          print_option_id: pricing.print_option_id,
-          lead_time_id: pricing.lead_time_id,
-          is_active: true
-        }));
-
-        const { error: matrixPricingError } = await supabase
-          .from('product_pricing')
-          .insert(matrixPricingData);
-
-        if (matrixPricingError) throw matrixPricingError;
-      }
-
-      // 4. Handle options and variants
-      if (id) {
-        await Promise.all([
-          supabase.from('product_options').delete().eq('product_id', id),
-          supabase.from('product_variants').delete().eq('product_id', id)
-        ]);
-      }
-
-      if (formData.options.length > 0) {
-        const optionsData = formData.options.map(option => ({
-          product_id: product.id,
-          name: option.name,
-          values: option.values
-        }));
-
-        const { error: optionsError } = await supabase
-          .from('product_options')
-          .insert(optionsData);
-
-        if (optionsError) throw optionsError;
-
-        const variantsData = formData.variants.map(variant => ({
-          product_id: product.id,
-          option_values: variant.option_values,
-          price_adjustment: variant.price_adjustment,
-          sku_suffix: variant.sku_suffix
-        }));
-
-        if (variantsData.length > 0) {
-          const { error: variantsError } = await supabase
-            .from('product_variants')
-            .insert(variantsData);
-
-          if (variantsError) throw variantsError;
+        
+        if (deleteError) {
+          console.error('Error deleting existing pricing:', deleteError);
+          throw deleteError;
         }
       }
 
-      // 5. Handle related products
+      // Insert new pricing data
+      console.log('Final pricing data to be inserted:', pricingData);
+      const { error: pricingError } = await supabase
+        .from('product_pricing')
+        .upsert(pricingData, {
+          onConflict: 'product_id,price_tier_id,print_option_id,lead_time_id',
+          ignoreDuplicates: true
+        });
+
+      if (pricingError) {
+        console.error('Error upserting pricing:', pricingError);
+        throw pricingError;
+      }
+
+      // 4. Handle related products
       if (id) {
         await supabase
           .from('related_products')
@@ -473,7 +525,14 @@ const ProductForm = () => {
                 <PricingMatrixEditor
                   productId={id}
                   value={formData.pricing_matrix}
-                  onChange={(newPricing) => setFormData(prev => ({ ...prev, pricing_matrix: newPricing }))}
+                  onChange={(newPricing) => {
+                    console.log('Received new pricing data:', newPricing);
+                    setFormData(prev => {
+                      const newFormData = { ...prev, pricing_matrix: newPricing };
+                      console.log('Updated form data:', newFormData);
+                      return newFormData;
+                    });
+                  }}
                 />
               </div>
             </div>
